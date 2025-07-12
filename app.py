@@ -8,6 +8,22 @@ import sqlite3, os
 from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from flask_login import current_user
 
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+
+MODEL_NAME = "AbhishekkV19/bert-base-uncased-10k-vulgarity"  # change this to your desired model
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+
+def is_toxic(text, threshold=0.5):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+    with torch.no_grad():
+        outputs = model(**inputs)
+        scores = torch.nn.functional.softmax(outputs.logits, dim=1)
+        toxic_score = scores[0][1].item()
+        print(f"Toxic Score: {toxic_score}")  # Debug
+        return toxic_score >= threshold
+
 online_users = set()
 
 app = Flask(__name__)
@@ -102,17 +118,19 @@ def handle_disconnect():
 
 @socketio.on("message")
 def handle_message(msg):
-    full_msg = f"{current_user.username}: {msg}"
-    
-    # Save to DB
-    conn = sqlite3.connect("chat.db")
-    cur = conn.cursor()
-    cur.execute("INSERT INTO messages (username, message) VALUES (?, ?)", (current_user.username, msg))
-    conn.commit()
-    conn.close()
-    
-    # Broadcast to all
-    send(full_msg, broadcast=True)
+    if current_user.is_authenticated:
+        if is_toxic(msg):
+            emit("message", f"{current_user.username}: [Message blocked due to vulgar content]", room=request.sid)
+            return
+
+        # Save clean message
+        conn = sqlite3.connect("chat.db")
+        cur = conn.cursor()
+        cur.execute("INSERT INTO messages (username, message) VALUES (?, ?)", (current_user.username, msg))
+        conn.commit()
+        conn.close()
+
+        send(f"{current_user.username}: {msg}", broadcast=True)
 
 def init_db():
     if not os.path.exists("chat.db"):
