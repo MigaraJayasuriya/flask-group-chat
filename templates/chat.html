@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Welcome, {{ username }}</h2>
+  <a href="{{ url_for('logout') }}">Logout</a>
+
+  <div style="display:flex; gap:20px;">
+    <div style="flex:3;">
+      <div id="chat-box" style="border:1px solid #aaa; padding:10px; height:300px; overflow-y:scroll;">
+        {% for msg in history %}
+          <p>{{ msg }}</p>
+        {% endfor %}
+      </div>
+
+      <input id="message" autocomplete="off">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+    <div style="flex:1;">
+      <h4>Online Users</h4>
+      <ul id="users"></ul>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    const socket = io();
+    const chatBox = document.getElementById("chat-box");
+    const usersList = document.getElementById("users");
+
+    socket.on("message", function(msg) {
+      const p = document.createElement("p");
+      p.textContent = msg;
+      chatBox.appendChild(p);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    socket.on("user_list", function(users) {
+      usersList.innerHTML = "";
+      users.forEach(function(user) {
+        const li = document.createElement("li");
+        li.textContent = user;
+        usersList.appendChild(li);
+      });
+    });
+
+    function sendMessage() {
+      const input = document.getElementById("message");
+      const msg = input.value;
+      if (msg.trim()) {
+        socket.send(msg);
+        input.value = "";
+      }
+    }
+
+    document.getElementById("message").addEventListener("keypress", function(e) {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+{% endblock %}
