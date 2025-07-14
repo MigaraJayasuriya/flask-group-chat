@@ -11,7 +11,7 @@ from flask_login import current_user
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 
-MODEL_NAME = "AbhishekkV19/bert-base-uncased-10k-vulgarity"  # change this to your desired model
+MODEL_NAME = "facebook/roberta-hate-speech-dynabench-r4-target"  # change this to your desired model
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
 
@@ -21,7 +21,8 @@ def is_toxic(text, threshold=0.5):
         outputs = model(**inputs)
         scores = torch.nn.functional.softmax(outputs.logits, dim=1)
         toxic_score = scores[0][1].item()
-        print(f"Toxic Score: {toxic_score}")  # Debug
+        print(model.config.id2label)
+        print(f"Toxic Score: {toxic_score}")
         return toxic_score >= threshold
 
 online_users = set()
@@ -120,7 +121,8 @@ def handle_disconnect():
 def handle_message(msg):
     if current_user.is_authenticated:
         if is_toxic(msg):
-            emit("message", f"{current_user.username}: [Message blocked due to vulgar content]", room=request.sid)
+            warning = f"⚠️ Warning: {current_user.username} tried to send inappropriate content."
+            emit("message", warning, broadcast=True)
             return
 
         # Save clean message

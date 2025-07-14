@@ -1,57 +1,121 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2>Welcome, {{ username }}</h2>
-  <a href="{{ url_for('logout') }}">Logout</a>
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-200 text-black">
+  <div class="flex flex-row w-full max-w-6xl p-6">
 
-  <div style="display:flex; gap:20px;">
-    <div style="flex:3;">
-      <div id="chat-box" style="border:1px solid #aaa; padding:10px; height:300px; overflow-y:scroll;">
+    <!-- Left Column: Chat and Controls -->
+    <div class="flex-1 bg-white shadow-lg rounded-lg p-6">
+      <!-- Welcome & Logout -->
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-purple-700">Welcome, {{ username }}</h2>
+        <a href="{{ url_for('logout') }}"
+           class="bg-purple-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-purple-700 transition">
+          Logout
+        </a>
+      </div>
+
+      <!-- Chat Messages -->
+      <div id="chat-box" class="bg-gray-100 rounded-lg p-4 h-80 overflow-y-scroll space-y-2 mb-4">
         {% for msg in history %}
-          <p>{{ msg }}</p>
+          {% if msg.startswith('⚠️') %}
+            <!-- Warning Message -->
+            <div class="bg-gradient-to-r from-red-500 to-red-700 text-white font-semibold p-2 rounded-lg max-w-[70%] shadow-md">
+              {{ msg }}
+            </div>
+          {% elif msg.startswith(username ~ ":") %}
+            <!-- Your Message -->
+            <div class="flex justify-end">
+              <div class="bg-purple-600 text-white p-2 rounded-lg max-w-[70%]">
+                {{ msg }}
+              </div>
+            </div>
+          {% else %}
+            <!-- Others' Message -->
+            <div class="flex justify-start">
+              <div class="bg-gray-300 text-black p-2 rounded-lg max-w-[70%]">
+                {{ msg }}
+              </div>
+            </div>
+          {% endif %}
         {% endfor %}
       </div>
 
-      <input id="message" autocomplete="off">
-      <button onclick="sendMessage()">Send</button>
+      <!-- Input & Send -->
+      <div class="flex gap-2">
+        <input id="message" autocomplete="off" placeholder="Type a message..."
+               class="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400">
+        <button onclick="sendMessage()"
+                class="bg-purple-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-purple-700 transition">
+          Send
+        </button>
+      </div>
     </div>
-    <div style="flex:1;">
-      <h4>Online Users</h4>
-      <ul id="users"></ul>
+
+    <!-- Right Column: Online Users (Separate Div with Margin) -->
+    <div class="w-64 ml-6 bg-white shadow-lg rounded-lg p-6 h-fit">
+      <h4 class="text-lg font-semibold text-purple-700 mb-4">Online Users</h4>
+      <ul id="users" class="flex flex-col gap-2">
+        <!-- JS will fill this list -->
+      </ul>
     </div>
+
   </div>
+</div>
 
-  <script type="text/javascript">
-    const socket = io();
-    const chatBox = document.getElementById("chat-box");
-    const usersList = document.getElementById("users");
+<script type="text/javascript">
+  const socket = io();
+  const chatBox = document.getElementById("chat-box");
+  const usersList = document.getElementById("users");
 
-    socket.on("message", function(msg) {
-      const p = document.createElement("p");
-      p.textContent = msg;
-      chatBox.appendChild(p);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
+  socket.on("message", function(msg) {
+    const div = document.createElement("div");
 
-    socket.on("user_list", function(users) {
-      usersList.innerHTML = "";
-      users.forEach(function(user) {
-        const li = document.createElement("li");
-        li.textContent = user;
-        usersList.appendChild(li);
-      });
-    });
-
-    function sendMessage() {
-      const input = document.getElementById("message");
-      const msg = input.value;
-      if (msg.trim()) {
-        socket.send(msg);
-        input.value = "";
-      }
+    if (msg.startsWith("⚠️")) {
+      div.className = "bg-gradient-to-r from-red-500 to-red-700 text-white font-semibold p-2 rounded-lg max-w-[70%] shadow-md";
+      div.textContent = msg;
+      chatBox.appendChild(div);
+    } else if (msg.startsWith("{{ username }}:")) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex justify-end";
+      const bubble = document.createElement("div");
+      bubble.className = "bg-purple-600 text-white p-2 rounded-lg max-w-[70%]";
+      bubble.textContent = msg;
+      wrapper.appendChild(bubble);
+      chatBox.appendChild(wrapper);
+    } else {
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex justify-start";
+      const bubble = document.createElement("div");
+      bubble.className = "bg-gray-300 text-black p-2 rounded-lg max-w-[70%]";
+      bubble.textContent = msg;
+      wrapper.appendChild(bubble);
+      chatBox.appendChild(wrapper);
     }
 
-    document.getElementById("message").addEventListener("keypress", function(e) {
-      if (e.key === "Enter") sendMessage();
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+
+  socket.on("user_list", function(users) {
+    usersList.innerHTML = "";
+    users.forEach(function(user) {
+      const li = document.createElement("li");
+      li.textContent = user;
+      li.className = "text-green-600 font-medium";
+      usersList.appendChild(li);
     });
-  </script>
+  });
+
+  function sendMessage() {
+    const input = document.getElementById("message");
+    const msg = input.value;
+    if (msg.trim()) {
+      socket.send(msg);
+      input.value = "";
+    }
+  }
+
+  document.getElementById("message").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") sendMessage();
+  });
+</script>
 {% endblock %}
